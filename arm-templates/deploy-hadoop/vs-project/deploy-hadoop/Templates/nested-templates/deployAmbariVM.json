@@ -1,0 +1,609 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "clientID": {
+      "type": "string",
+      "metadata": {
+        "description": "Prefix for the Environment (2-5 characters) related to the Client ID or Name."
+      }
+    },
+    "primaryAddressPrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Primary Address prefix."
+      }
+    },
+    "subnetPrefix": {
+      "type": "string",
+      "metadata": {
+        "description": "Subnet Prefix."
+      }
+    },
+    "ambariServerNicIPAddress": {
+      "type": "string",
+      "metadata": {
+        "description": "The Primary IP address of the new Ambari Server being deployed."
+      }
+    },
+    "ambariServerStorageType": {
+      "type": "string",
+      "metadata": {
+        "Description": "The Type of Redundant Storage used for the Ambari Server being deployed."
+      }
+    },
+    "ambariServerAdminUsername": {
+      "type": "string",
+      "metadata": {
+        "Description": "The Local Username of the account being created on the Ambari Server."
+      }
+    },
+    "ambariServerAdminPassword": {
+      "type": "securestring",
+      "metadata": {
+        "Description": "The Local Password of the account being created on the Ambari Server."
+      }
+    },
+    "ambariServerImagePublisher": {
+      "type": "string",
+      "metadata": {
+        "description": "The Publisher of the Linux Image being used for the Ambari Server."
+      }
+    },
+    "ambariServerImageOffer": {
+      "type": "string",
+      "metadata": {
+        "description": "The Linux Image Offer used for the Ambari Server."
+      }
+    },
+    "ambariServerImageSku": {
+      "type": "string",
+      "metadata": {
+        "description": "The Linux Image SKU used for the Ambari Server."
+      }
+    },
+    "ambariServerImageVersion": {
+      "type": "string",
+      "metadata": {
+        "description": "The Version Number of the fully patched Linux Image being deployed."
+      }
+    },
+    "ambariServerDataDiskSize": {
+      "type": "int",
+      "metadata": {
+        "description": "The Size of the Ambari Server Instance Data Disk in GB."
+      }
+    },
+    "ambariServerVMSize": {
+      "type": "string",
+      "metadata": {
+        "description": "The Size of the Ambari Server VM being deployed in Azure."
+      }
+    },
+    "apiVersion": {
+      "type": "string",
+      "metadata": {
+        "description": "The Azure Resource Manager API Version to use during the Deployment."
+      }
+    },
+
+
+    "vNetName": {
+      "type": "string",
+      "metadata": {
+        "description": "The vNet Name from the azuredeploy.json Variables section."
+      }
+    },
+    "subnetName": {
+      "type": "string",
+      "metadata": {
+        "description": "The Subnet Name from the azuredeploy.json Variables section."
+      }
+    },
+    "ambariServerNsgName": {
+      "type": "string",
+      "metadata": {
+        "description": "The Network Security Group Name for the Ambari Server from the azuredeploy.json Variables section."
+      }
+    },
+    "ambariServerPubIPName": {
+      "type": "string",
+      "metadata": {
+        "description": "The Name of the Ambari Server's Public IP Address."
+      }
+    },
+    "ambariServerStorageName": {
+      "type": "string",
+      "metadata": {
+        "description": "The Name of the Storage Account for the Ambari Server being deployed."
+      }
+    },
+    "ambariServerName": {
+      "type": "string",
+      "metadata": {
+        "description": "The Ambari Server Name from the azuredeploy.json Variables section."
+      }
+    },
+    "ambariServerOSDiskName": {
+      "type": "string",
+      "metadata": {
+        "description": "The Name of the Ambari Server OS Disk being deployed."
+      }
+    },
+    "ambariServerDataDiskName": {
+      "type": "string",
+      "metadata": {
+        "description": "The Name of the Ambari Server Data Disk being deployed."
+      }
+    }
+  },
+  "variables": {
+  },
+  "resources": [
+    {
+      "name": "[parameters('ambariServerStorageName')]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "[parameters('apiVersion')]",
+      "dependsOn": [],
+      "tags": {
+        "displayName": "[parameters('ambariServerStorageName')]"
+      },
+      "properties": {
+        "accountType": "[parameters('ambariServerStorageType')]"
+      }
+    },
+    {
+      "name": "[parameters('ambariServerPubIPName')]",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "[parameters('apiVersion')]",
+      "dependsOn": [],
+      "tags": {
+        "displayName": "[parameters('ambariServerPubIPName')]"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic",
+        "dnsSettings": {
+          "domainNameLabel": "[parameters('ambariServerPubIPName')]"
+        }
+      }
+    },
+    {
+      "apiVersion": "[parameters('apiVersion')]",
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "name": "[parameters('ambariServerNsgName')]",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "allow-ssh-inbound",
+            "properties": {
+              "description": "Allow SSH traffic through port 22.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "22",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 100,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-grafana-inbound",
+            "properties": {
+              "description": "Allow Grafana traffic through port 3000.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "3000",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 101,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-spark-env-inbound",
+            "properties": {
+              "description": "Allow Spark Environment traffic through port 4040.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "4040",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 102,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-ambari-web-ui-inbound",
+            "properties": {
+              "description": "Allow Ambari Server Web UI traffic through port 8080.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "8080",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 103,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-yarn-resource-manager-web-ui-inbound",
+            "properties": {
+              "description": "Allow YARN Resource Manager Web UI traffic through port 8088.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "8088",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 104,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-yarn-timeline-server-webapp-inbound",
+            "properties": {
+              "description": "Allow YARN Timeline Server web App traffic through port 8188.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "8188",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 105,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-storm-ui-inbound",
+            "properties": {
+              "description": "Allow Storm UI traffic through port 8744.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "8744",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 106,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-solr-admin-ui-inbound",
+            "properties": {
+              "description": "Allow Solr Admin UI traffic through port 8886.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "8886",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 107,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-zeppelin-web-ui-inbound",
+            "properties": {
+              "description": "Allow Oozie Web UI traffic through port 9995.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "9995",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 108,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-spark-thrift-server-inbound",
+            "properties": {
+              "description": "Allow MapReduce Job History traffic through port 10015.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "10015",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 109,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-mapreduce-job-history-inbound",
+            "properties": {
+              "description": "Allow MapReduce Job History traffic through port 10020.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "10020",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 110,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-oozie-web-ui-inbound",
+            "properties": {
+              "description": "Allow Oozie Web UI traffic through port 11000.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "11000",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 111,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-falcon-web-ui-inbound",
+            "properties": {
+              "description": "Allow Falcon Web UI traffic through port 15000.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "15000",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 112,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-hbase-master-inbound",
+            "properties": {
+              "description": "Allow HBase Master traffic through port 16000.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "16000",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 113,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-hbase-web-ui-info-inbound",
+            "properties": {
+              "description": "Allow HBase Web UI Info traffic through port 16010.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "16010",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 114,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-hbase-region-server-16020-inbound",
+            "properties": {
+              "description": "Allow HBase Region Server traffic through port 16020.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "16020",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 115,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-hbase-region-server-16030-inbound",
+            "properties": {
+              "description": "Allow HBase Region Server traffic through port 16030.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "16030",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 116,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-spark-web-ui-inbound",
+            "properties": {
+              "description": "Allow Spark Web UI traffic through port 18080.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "18080",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 117,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-mapreduce-job-history-webapp-inbound",
+            "properties": {
+              "description": "Allow MapReduce Job History WebApp traffic through port 19888.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "19888",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 118,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-hdfs-namenode-web-ui",
+            "properties": {
+              "description": "Allow HDFS NameNode Web UI traffic through port 50070.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "50070",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 119,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-accumulo-monitor-ui",
+            "properties": {
+              "description": "Allow Accumulo Monitor UI traffic through port 50095.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "50095",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 120,
+              "direction": "Inbound"
+            }
+          },
+          {
+            "name": "allow-active-mq-inbound",
+            "properties": {
+              "description": "Allow ActiveMQ traffic through port 61616.",
+              "protocol": "Tcp",
+              "sourcePortRange": "*",
+              "destinationPortRange": "61616",
+              "sourceAddressPrefix": "*",
+              "destinationAddressPrefix": "[concat(parameters('subnetPrefix'))]",
+              "access": "Allow",
+              "priority": 121,
+              "direction": "Inbound"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "apiVersion": "[parameters('apiVersion')]",
+      "type": "Microsoft.Network/virtualNetworks",
+      "name": "[parameters('vNetName')]",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/networkSecurityGroups/', parameters('ambariServerNsgName'))]"
+      ],
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "[parameters('primaryAddressPrefix')]"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "[parameters('subnetName')]",
+            "properties": {
+              "addressPrefix": "[parameters('subnetPrefix')]",
+              "networkSecurityGroup": {
+                "id": "[resourceId('Microsoft.Network/networkSecurityGroups', parameters('ambariServerNsgName'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[concat(parameters('ambariServerName'), '-NIC')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "[parameters('apiVersion')]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/publicIPAddresses/', parameters('ambariServerPubIPName'))]",
+        "[concat('Microsoft.Network/virtualNetworks/', parameters('vNetName'))]"
+      ],
+      "tags": {
+        "displayName": "[concat(parameters('ambariServerName'), '-NIC')]"
+      },
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "[concat(parameters('ambariServerName'), '-ipconfig')]",
+            "properties": {
+              "privateIPAddress": "[parameters('ambariServerNicIPAddress')]",
+              "privateIPAllocationMethod": "Static",
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('ambariServerPubIPName'))]"
+              },
+              "subnet": {
+                "id": "[concat(resourceId('Microsoft.Network/virtualNetworks', parameters('vNetName')), '/subnets/', parameters('subnetName'))]"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "[parameters('ambariServerName')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "location": "[resourceGroup().location]",
+      "apiVersion": "[parameters('apiVersion')]",
+      "dependsOn": [
+        "[concat('Microsoft.Storage/storageAccounts/', parameters('ambariServerStorageName'))]",
+        "[concat('Microsoft.Network/networkInterfaces/', parameters('ambariServerName'), '-NIC')]"
+      ],
+      "tags": {
+        "displayName": "[parameters('ambariServerName')]"
+      },
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[parameters('ambariServerVMSize')]"
+        },
+        "osProfile": {
+          "computerName": "[parameters('ambariServerName')]",
+          "adminUsername": "[parameters('ambariServerAdminUsername')]",
+          "adminPassword": "[parameters('ambariServerAdminPassword')]"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "[parameters('ambariServerImagePublisher')]",
+            "offer": "[parameters('ambariServerImageOffer')]",
+            "sku": "[parameters('ambariServerImageSku')]",
+            "version": "[parameters('ambariServerImageVersion')]"
+          },
+          "osDisk": {
+            "name": "[parameters('ambariServerOSDiskName')]",
+            "vhd": {
+              "uri": "[concat('http://', parameters('ambariServerStorageName'), '.blob.core.windows.net/vhds', '/', parameters('ambariServerOSDiskName'), '.vhd')]"
+            },
+            "caching": "ReadWrite",
+            "createOption": "FromImage"
+          },
+          "dataDisks": [
+            {
+              "vhd": {
+                "uri": "[concat('http://', parameters('ambariServerStorageName'), '.blob.core.windows.net/vhds', '/', parameters('ambariServerDataDiskName'),'.vhd')]"
+              },
+              "name": "[concat(parameters('ambariServerName'))]",
+              "caching": "None",
+              "createOption": "Empty",
+              "diskSizeGB": "[parameters('ambariServerDataDiskSize')]",
+              "lun": 0
+            }
+          ]
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(parameters('ambariServerName'), '-NIC'))]",
+              "properties": { "primary": true }
+            }
+          ]
+        }
+      },
+      "resources": [
+      ]
+    }
+  ]
+}  
