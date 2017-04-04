@@ -257,21 +257,21 @@
     },
     "deployAmbariVMTemplateURI": {
       "type": "string",
-      "defaultValue": "https://raw.githubusercontent.com/starkfell/starkfell.github.io/master/arm-templates/deploy-hadoop/vs-project/deploy-hadoop/Templates/nested-templates/deployAmbariVM.json",
+      "defaultValue": "https://github.com/martinthiele/deploy-ambari-centos/master/arm-templates/deploy-hadoop/vs-project/deploy-hadoop/Templates/nested-templates/deployAmbariVM.json",
       "metadata": {
         "description": "The location of the deployAmbariVM.json ARM Template File."
       }
     },
     "deployHadoopVMTemplateURI": {
       "type": "string",
-      "defaultValue": "https://raw.githubusercontent.com/starkfell/starkfell.github.io/master/arm-templates/deploy-hadoop/vs-project/deploy-hadoop/Templates/nested-templates/deployHadoopVMs.json",
+      "defaultValue": "https://github.com/martinthiele/deploy-ambari-centos/master/arm-templates/deploy-hadoop/vs-project/deploy-hadoop/Templates/nested-templates/deployHadoopVMs.json",
       "metadata": {
         "description": "The location of the deployHadoopVMs.json ARM Template File."
       }
     },
     "deployAmbariServerTemplateURI": {
       "type": "string",
-      "defaultValue": "https://raw.githubusercontent.com/starkfell/starkfell.github.io/master/arm-templates/deploy-hadoop/vs-project/deploy-hadoop/Templates/nested-templates/deployAmbariServer.json",
+      "defaultValue": "https://github.com/martinthiele/deploy-ambari-centos/master/arm-templates/deploy-hadoop/vs-project/deploy-hadoop/Templates/nested-templates/deployAmbariServer.json",
       "metadata": {
         "description": "The location of the deployAmbariServer.json ARM Template File."
       }
